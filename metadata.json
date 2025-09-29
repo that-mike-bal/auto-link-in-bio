@@ -1,0 +1,5 @@
+{
+  "name": "AI Link-in-Bio Builder",
+  "description": "An intelligent agent that crawls a user's primary link (website, social media) to automatically generate a beautiful and comprehensive link-in-bio page. It finds social profiles, key content, and contact information, presenting them for one-click addition.",
+  "requestFramePermissions": []
+}

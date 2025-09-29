@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AI Link-in-Bio Builder</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              'brand-primary': '#6d28d9',
+              'brand-secondary': '#a78bfa',
+              'brand-background': '#111827',
+              'brand-surface': '#1f2937',
+              'brand-text-primary': '#f9fafb',
+              'brand-text-secondary': '#d1d5db',
+            }
+          }
+        }
+      }
+    </script>
+    <script type="importmap">
+{
+  "imports": {
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.1.1/",
+    "react/": "https://aistudiocdn.com/react@^19.1.1/",
+    "react": "https://aistudiocdn.com/react@^19.1.1",
+    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.17.0",
+    "@heroicons/react/": "https://aistudiocdn.com/@heroicons/react@^2.2.0/"
+  }
+}
+</script>
+    <script src="https://gravatar.com/js/quickeditor.min.js"></script>
+<link rel="stylesheet" href="/index.css">
+</head>
+  <body class="bg-brand-background">
+    <div id="root"></div>
+    <script type="module" src="/index.tsx"></script>
+  </body>
+</html>
