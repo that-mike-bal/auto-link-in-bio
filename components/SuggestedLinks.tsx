@@ -10,31 +10,41 @@ interface SuggestedLinksProps {
   onDismissLink: (linkUrl: string) => void;
   onFindMore: () => void;
   isFindingMore: boolean;
+  errorMessage?: string;
 }
 
-const SuggestedLinks: React.FC<SuggestedLinksProps> = ({ links, sources, onAddLink, onDismissLink, onFindMore, isFindingMore }) => {
+const SuggestedLinks: React.FC<SuggestedLinksProps> = ({ links, sources, onAddLink, onDismissLink, onFindMore, isFindingMore, errorMessage }) => {
+  const findMoreButton = (
+    <button
+      onClick={onFindMore}
+      disabled={isFindingMore}
+      className="flex items-center justify-center space-x-2 px-4 py-2 font-bold text-white bg-brand-primary rounded-lg hover:bg-violet-700 disabled:bg-gray-600 disabled:cursor-not-allowed transition-all transform hover:scale-105"
+    >
+      {isFindingMore ? (
+        <>
+            <div className="w-5 h-5 border-2 border-dashed rounded-full animate-spin border-white"></div>
+            <span>Searching...</span>
+        </>
+      ) : (
+        <>
+          <SparklesIcon className="h-5 w-5" />
+          <span>Find More Suggestions</span>
+        </>
+      )}
+    </button>
+  );
+
+  const error = errorMessage && (
+    <p role="status" className="text-sm text-amber-300 mt-3">{errorMessage}</p>
+  );
+
   if (links.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center h-full text-center p-4 bg-gray-800 rounded-lg">
         <p className="text-brand-text-secondary font-semibold">No more links found!</p>
         <p className="text-sm text-gray-400 mt-2 mb-4">Want the AI to search the web for more?</p>
-        <button
-          onClick={onFindMore}
-          disabled={isFindingMore}
-          className="flex items-center justify-center space-x-2 px-4 py-2 font-bold text-white bg-brand-primary rounded-lg hover:bg-violet-700 disabled:bg-gray-600 disabled:cursor-not-allowed transition-all transform hover:scale-105"
-        >
-          {isFindingMore ? (
-            <>
-                <div className="w-5 h-5 border-2 border-dashed rounded-full animate-spin border-white"></div>
-                <span>Searching...</span>
-            </>
-          ) : (
-            <>
-              <SparklesIcon className="h-5 w-5" />
-              <span>Find More Suggestions</span>
-            </>
-          )}
-        </button>
+        {findMoreButton}
+        {error}
       </div>
     );
   }
@@ -47,6 +57,11 @@ const SuggestedLinks: React.FC<SuggestedLinksProps> = ({ links, sources, onAddLi
         ))}
       </div>
 
+      <div className="mt-4 flex flex-col items-center">
+        {findMoreButton}
+        {error}
+      </div>
+
       {sources && sources.length > 0 && (
         <div className="mt-6 pt-4 border-t border-gray-700">
           <h4 className="text-xs font-semibold uppercase text-gray-500 tracking-wider">
@@ -55,10 +70,10 @@ const SuggestedLinks: React.FC<SuggestedLinksProps> = ({ links, sources, onAddLi
           <ul className="mt-2 space-y-1">
             {sources.map((source, index) => (
               <li key={index} className="truncate">
-                <a 
-                  href={source.web.uri} 
-                  target="_blank" 
-                  rel="noopener noreferrer" 
+                <a
+                  href={source.web.uri}
+                  target="_blank"
+                  rel="noopener noreferrer"
                   className="text-sm text-gray-400 hover:text-brand-secondary transition-colors"
                   title={source.web.title}
                 >

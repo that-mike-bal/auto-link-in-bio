@@ -1,96 +1,94 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import Landing from './components/Landing';
 import ProfileBuilder from './components/ProfileBuilder';
 import { AppState, UserProfile, Link, GroundingSource } from './types';
-import { crawlUrl } from './services/firecrawlService';
-import { getGravatarProfile } from './services/gravatarService';
-import { generateProfile, generateLinks, findMoreLinks } from './services/geminiService';
+import { buildProfile, findMoreLinks, refreshGravatar } from './services/api';
+
+// The build is one server round trip, so these rotate on a timer to show
+// what the pipeline is doing.
+const BUILD_STEPS = [
+  'Fetching your digital footprint...',
+  'Reading your website...',
+  'Our AI agent is building your profile...',
+  'Finding relevant links for you...',
+];
 
 const App: React.FC = () => {
   const [appState, setAppState] = useState<AppState>(AppState.LANDING);
-  const [loadingMessage, setLoadingMessage] = useState<string>('');
+  const [buildStep, setBuildStep] = useState(0);
   const [errorMessage, setErrorMessage] = useState<string>('');
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [suggestedLinks, setSuggestedLinks] = useState<Link[]>([]);
   const [addedLinks, setAddedLinks] = useState<Link[]>([]);
   const [searchSources, setSearchSources] = useState<GroundingSource[]>([]);
+  const [isFindingMore, setIsFindingMore] = useState(false);
+  const [findMoreError, setFindMoreError] = useState('');
 
+  useEffect(() => {
+    if (appState !== AppState.LOADING) return;
+    setBuildStep(0);
+    const timer = setInterval(() => {
+      setBuildStep(step => Math.min(step + 1, BUILD_STEPS.length - 1));
+    }, 3000);
+    return () => clearInterval(timer);
+  }, [appState]);
 
   const handleStartBuild = useCallback(async (email: string, url: string) => {
     setAppState(AppState.LOADING);
     setErrorMessage('');
-    setLoadingMessage('Fetching your digital footprint...');
 
     try {
-      const [gravatarData, crawlData] = await Promise.all([
-        getGravatarProfile(email),
-        crawlUrl(url)
-      ]);
-      
-      const crawlContent = crawlData.map(d => d.markdown).join('\n\n');
-
-      setLoadingMessage('Our AI agent is building your profile...');
-
-      const generatedProfile = await generateProfile(email, crawlContent, gravatarData);
-      setUserProfile({ ...generatedProfile, email }); // Store email for Gravatar editor
-
-      setLoadingMessage('Finding relevant links for you...');
-
-      const generatedLinks = await generateLinks(crawlContent);
-      setSuggestedLinks(generatedLinks);
+      const { profile, links } = await buildProfile(email, url);
+      setUserProfile(profile);
+      setSuggestedLinks(links);
       setAddedLinks([]);
       setSearchSources([]);
-
+      setFindMoreError('');
       setAppState(AppState.BUILDING);
     } catch (error) {
       console.error('Error building profile:', error);
       const message = error instanceof Error ? error.message : 'An unknown error occurred.';
-      setErrorMessage(`Failed to build your profile. ${message} Please try again.`);
+      setErrorMessage(`Failed to build your profile. ${message}`);
       setAppState(AppState.LANDING);
-    } finally {
-        setLoadingMessage('');
     }
   }, []);
 
   const handleFindMoreLinks = useCallback(async () => {
     if (!userProfile) return;
-    
-    setLoadingMessage("AI is searching for more links...");
+
+    setIsFindingMore(true);
+    setFindMoreError('');
     try {
-      const existingLinks = [...addedLinks, ...suggestedLinks];
-      const { links: newLinks, sources: newSources } = await findMoreLinks(userProfile, existingLinks);
-      
-      const uniqueNewLinks = newLinks.filter(nl => !existingLinks.some(el => el.url === nl.url));
-
-      setSuggestedLinks(prev => [...prev, ...uniqueNewLinks]);
-      setSearchSources(newSources);
-
+      const existingUrls = [...addedLinks, ...suggestedLinks].map(link => link.url);
+      const { links, sources } = await findMoreLinks(userProfile, existingUrls);
+      if (links.length === 0) {
+        setFindMoreError("The AI didn't find any new links this time.");
+      }
+      setSuggestedLinks(prev => [...prev, ...links.filter(nl => !prev.some(el => el.url === nl.url))]);
+      setSearchSources(sources);
     } catch (error) {
-       console.error("Failed to find more links:", error);
+      console.error('Failed to find more links:', error);
+      setFindMoreError(error instanceof Error ? error.message : 'Search failed. Please try again.');
     } finally {
-      setLoadingMessage("");
+      setIsFindingMore(false);
     }
   }, [userProfile, suggestedLinks, addedLinks]);
 
   const handleProfileUpdate = useCallback(async (email: string) => {
-      setLoadingMessage("Refreshing profile...");
-      try {
-          const gravatarData = await getGravatarProfile(email);
-          if (gravatarData) {
-              setUserProfile(prev => prev ? {
-                  ...prev,
-                  name: gravatarData.displayName || prev.name,
-                  bio: gravatarData.aboutMe || prev.bio,
-                  avatarUrl: `${gravatarData.thumbnailUrl}&v=${Date.now()}`, // Cache bust avatar
-                  location: gravatarData.currentLocation || prev.location,
-                  profileColor: gravatarData.profileColor || prev.profileColor,
-              } : null);
-          }
-      } catch (error) {
-          console.error("Failed to refresh Gravatar profile:", error);
-      } finally {
-          setLoadingMessage("");
+    try {
+      const gravatar = await refreshGravatar(email);
+      if (gravatar) {
+        setUserProfile(prev => prev ? {
+          ...prev,
+          name: gravatar.displayName || prev.name,
+          bio: gravatar.aboutMe || prev.bio,
+          avatarUrl: gravatar.avatarUrl ? `${gravatar.avatarUrl}&v=${Date.now()}` : prev.avatarUrl, // Cache bust avatar
+          location: gravatar.currentLocation || prev.location,
+        } : null);
       }
+    } catch (error) {
+      console.error('Failed to refresh Gravatar profile:', error);
+    }
   }, []);
 
   const handleReset = () => {
@@ -100,34 +98,34 @@ const App: React.FC = () => {
     setAddedLinks([]);
     setErrorMessage('');
     setSearchSources([]);
+    setFindMoreError('');
   };
 
-  switch (appState) {
-    case AppState.LOADING:
-    case AppState.LANDING:
-      return <Landing onStartBuild={handleStartBuild} isLoading={appState === AppState.LOADING} loadingMessage={loadingMessage} errorMessage={errorMessage} />;
-    case AppState.BUILDING:
-      if (userProfile) {
-        return <ProfileBuilder 
-                  userProfile={userProfile} 
-                  initialSuggestedLinks={suggestedLinks}
-                  initialAddedLinks={addedLinks}
-                  searchSources={searchSources}
-                  setAddedLinks={setAddedLinks}
-                  setSuggestedLinks={setSuggestedLinks}
-                  setSearchSources={setSearchSources}
-                  onReset={handleReset} 
-                  onFindMoreLinks={handleFindMoreLinks}
-                  onProfileUpdate={handleProfileUpdate}
-                  isFindingMore={!!loadingMessage}
-               />;
-      }
-      setErrorMessage("Something went wrong. Couldn't load profile data.");
-      setAppState(AppState.LANDING);
-      return null;
-    default:
-      return <Landing onStartBuild={handleStartBuild} isLoading={false} errorMessage="An unexpected error occurred. Please refresh the page." />;
+  if (appState === AppState.BUILDING && userProfile) {
+    return <ProfileBuilder
+              userProfile={userProfile}
+              suggestedLinks={suggestedLinks}
+              addedLinks={addedLinks}
+              searchSources={searchSources}
+              setAddedLinks={setAddedLinks}
+              setSuggestedLinks={setSuggestedLinks}
+              setSearchSources={setSearchSources}
+              onReset={handleReset}
+              onFindMoreLinks={handleFindMoreLinks}
+              onProfileUpdate={handleProfileUpdate}
+              isFindingMore={isFindingMore}
+              findMoreError={findMoreError}
+           />;
   }
+
+  return (
+    <Landing
+      onStartBuild={handleStartBuild}
+      isLoading={appState === AppState.LOADING}
+      loadingMessage={BUILD_STEPS[buildStep]}
+      errorMessage={errorMessage}
+    />
+  );
 };
 
 export default App;

@@ -1,3 +1,5 @@
+import type { ComponentType } from 'react';
+
 export interface UserProfile {
   name: string;
   bio: string;
@@ -5,7 +7,7 @@ export interface UserProfile {
   location: string;
   logoUrl?: string;
   profileColor?: string;
-  email?: string; // Add email to profile for Gravatar editor
+  email?: string; // Kept for the Gravatar quick editor
 }
 
 export interface Link {
@@ -20,29 +22,42 @@ export enum AppState {
   LANDING = 'LANDING',
   LOADING = 'LOADING',
   BUILDING = 'BUILDING',
-  ERROR = 'ERROR',
-}
-
-export interface CrawlData {
-    markdown: string;
-    url: string;
 }
 
 export enum Layout {
-    STACK = 'Stack',
-    GRID = 'Grid',
-    CARD = 'Card',
+  STACK = 'Stack',
+  GRID = 'Grid',
+  CARD = 'Card',
 }
 
 export interface LayoutOption {
-    id: Layout;
-    name: string;
-    icon: React.ComponentType<{ className?: string }>;
+  id: Layout;
+  name: string;
+  icon: ComponentType<{ className?: string }>;
 }
 
 export interface GroundingSource {
-    web: {
-        uri: string;
-        title: string;
-    };
+  web: {
+    uri: string;
+    title: string;
+  };
+}
+
+export interface GravatarProfile {
+  displayName: string;
+  aboutMe: string;
+  currentLocation: string;
+  avatarUrl: string;
+  verifiedLinks: Link[];
+}
+
+// Shapes returned by the /api handlers
+export interface BuildResponse {
+  profile: UserProfile;
+  links: Link[];
+}
+
+export interface MoreLinksResponse {
+  links: Link[];
+  sources: GroundingSource[];
 }
